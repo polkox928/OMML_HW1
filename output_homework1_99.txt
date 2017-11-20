@@ -1,0 +1,13 @@
+This is homework 1: question 1
+Test MSE,1.000000
+Training computing time,12.300000
+Function evaluations,100
+Gradient evaluations,50This is homework 1: question 1
+Test MSE,1.000000
+Training computing time,12.300000
+Function evaluations,100
+Gradient evaluations,50This is homework 1: question 1
+Test MSE,1.000000
+Training computing time,12.300000
+Function evaluations,100
+Gradient evaluations,50
