@@ -8,10 +8,9 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 sess = tf.Session()
 seed = 1733715
-random.seed(seed)
 
 ############
-
+``` python
 def franke(x1, x2):
   return (
     .75 * math.exp(-(9 * x1 - 2) * 2 / 4.0 - (9 * x2 - 2) * 2 / 4.0) +
@@ -19,7 +18,7 @@ def franke(x1, x2):
     .5 * math.exp(-(9 * x1 - 7) * 2 / 4.0 - (9 * x2 - 3) * 2 / 4.0) -
     .2 * math.exp(-(9 * x1 - 4) * 2 - (9 * x2 - 7) * 2)
   )
-
+```
 
 ############
 
@@ -179,4 +178,4 @@ class MLP:
 #print(x1)
 
 ################EXACUTiON
-print(train(x_train,y_train))
+MLP.train(x_train,y_train)
