@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import random
 import math
-import sklearn
 from sklearn.model_selection import train_test_split
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
@@ -38,7 +37,7 @@ x_train, x_test, y_train, y_test = train_test_split(X,y, test_size = 0.3, random
 # Initialization of hyperparameters
 N = 3 # Number of neurons in hidden layer
 sigma = 1 # Parameter of hyperbolic tangent (activation function) In tensorflow it is 1
-rho = 1 # Learnign rate
+rho = 1e-5 # Learnign rate
 
 # Initialization of model parameters
 w = tf.Variable(tf.truncated_normal(shape = [N, 2], seed = seed))
@@ -73,7 +72,7 @@ class MLP:
         self.fitted = False
         return
 
-    def set_hyperparameters(self, N, rho, sigma = 1):
+    def set_hyperparameters(self, N, rho, sigma=1):
         self.N = N
         self.rho = rho
         self.sigma = sigma
@@ -111,7 +110,7 @@ class MLP:
     def train(self, x_train, y_train, N = 2, rho = 1e-5, sigma = 1, max_iter = 1000, fit = True):
         sess = tf.Session()
         w = tf.Variable(tf.truncated_normal(shape = [N, 2], seed = seed))
-        b = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed))
+        b = tf.Variable(tf.zeros(shape = [N, 1]))
         v = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed))
 
         x = tf.placeholder(shape = x_train.shape, dtype = tf.float32)
@@ -125,7 +124,7 @@ class MLP:
         omega = tf.concat(values = [w,b,v], axis = 1)
 
         squared_loss = 1/(2*P)*tf.reduce_sum(tf.squared_difference(f_out, y))
-        regularizer = rho*tf.square(tf.norm(omega))
+        regularizer = rho*tf.square(tf.norm(omega))/2
 
         loss = squared_loss + regularizer
 
@@ -135,7 +134,7 @@ class MLP:
         init = tf.global_variables_initializer()
         sess.run(init)
 
-        for i in range(1000):
+        for i in range(max_iter):
             sess.run(train, {x: x_train, y: y_train})
             if i %(max_iter/10) == 0:
                 # evaluate training accuracy
@@ -175,7 +174,7 @@ w = tf.Variable(tf.truncated_normal(shape = [N, 2], seed = seed))
 b = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed))
 v = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed))
 
-wNew, bNew, vNew = mlp.train(x_train, y_train, N = 2, rho = 1e-5, sigma = 1, max_iter = 1000, fit = True)
+wNew, bNew, vNew = mlp.train(x_train, y_train, N = 20, rho = 1e-5, sigma = 1, max_iter = 10000, fit = True)
 omega = tf.concat([w,b,v], axis = 1)
 norma = tf.norm(omega)
 #print(sess.run(norma))
@@ -185,7 +184,7 @@ yCap= (sess.run(f_out,{x : x_test})[0])
 #nella f errore ycap - y_test
 #print("yCap",len(yCap),"y train", len(y_train),"y test",len(y_test),"y hat",len(y_hat))
 #print("MSE:" , sklearn.metrics.mean_squared_error(y_train, yCap, sample_weight=None))
-
+#%%
 ######da mettere in funzione
 hidden_output1 = tf.tanh(tf.matmul(wNew, tf.transpose(x)) - bNew)
 
@@ -195,7 +194,11 @@ P = len(y_test)
 omegaNew = tf.concat(values=[wNew, bNew, vNew], axis=1)
 
 squared_loss = 1 / (2 * P) * tf.reduce_sum(tf.squared_difference(f_out, y))
-regularizer = rho * tf.square(tf.norm(omegaNew))
+regularizer = rho * tf.square(tf.norm(omegaNew))/2
 
 loss = squared_loss + regularizer
+print(sess.run(squared_loss, {x:x_test,y:y_test}))
+print(sess.run(regularizer, {x:x_test,y:y_test}))
+
 print("test error",sess.run(loss,{x:x_test,y:y_test}))
+
