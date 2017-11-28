@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from Functions_homework1_question1_24 import *
 #%%
-x_train, x_test, y_train, y_test = generateTrainTestSet()
+x_train, x_test, x_val, y_train, y_test, y_val = generateTrainTestSet()
 
-grid = grid_search_Nrho([2, 5, 10, 20, 50], [1e-1, 1e-3, 1e-5], x_train, y_train, max_iter = 10000)
+grid = grid_search_Nrho([2, 5, 10, 20, 50], [1e-3, 1e-4, 1e-5], x_train, y_train, x_val, y_val, max_iter = 1000)
 
 min_loss = min(grid.values())
 opt_hyp = [nrho for nrho, loss in grid.items() if loss == min_loss][0]
@@ -15,17 +15,18 @@ N_opt, rho_opt = opt_hyp
 print('\nMin Loss: %0.4f' %min_loss)
 print('\nOptimal hyperparameter: (%d, %0.1e)' %opt_hyp)
 
-w_opt, b_opt, v_opt, loss_value = trainMLP(x_train, y_train, N_opt, rho_opt, max_iter = 1000000)
+#%%
+w_opt, b_opt, v_opt, val_loss = trainMLP(x_train, y_train, x_val, y_val, N_opt, rho_opt, max_iter = 100000)
 
 MLP = makeMLP(w_opt, b_opt, v_opt)
 
-print('\nLoss on train set: %0.8f \nLoss on test set: %0.8f' %(loss_value, compute_loss(MLP(x_test), y_test)))
+print('\nLoss on train set: %0.8f \nLoss on test set: %0.8f' %(val_loss, compute_loss(MLP(x_test), y_test)))
 
 #%%
 # Overfitting
 N = N_opt
 rho = rho_opt
-max_iter = 100000
+max_iter = 10000
 sess = tf.Session()
 
 # Initialization of model parameters
@@ -103,10 +104,10 @@ X, Y = np.meshgrid(x1, x1)
 
 
 # Plot the surface.
-surf = ax.plot_surface(X, Y, grid_Y, cmap=cm.coolwarm,
+surf = ax.plot_surface(X, Y, grid_Y, cmap=cm.Reds,
                        linewidth=0, antialiased=False)
-surf2 = ax.plot_surface(X, Y, grid_franke, cmap=cm.coolwarm,
-                       linewidth=0, antialiased=False)
+surf2 = ax.plot_surface(X, Y, grid_franke, cmap=cm.Blues,
+                    linewidth=0, antialiased=False)
 
 # Customize the z axis.
 ax.zaxis.set_major_locator(LinearLocator(10))
@@ -114,6 +115,7 @@ ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
 
 # Add a color bar which maps values to colors.
 fig.colorbar(surf, shrink=0.5, aspect=5)
+fig.colorbar(surf2, shrink=0.5, aspect=5)
 
 plt.show()
 

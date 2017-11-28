@@ -5,8 +5,6 @@ import pandas as pd
 import random
 import math
 from sklearn.model_selection import train_test_split
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
 import tensorflow as tf
 sess = tf.Session()
 seed = 1733715
@@ -32,11 +30,12 @@ def generateTrainTestSet():
     y = np.array([franke(x1[i],x2[i]) + random.uniform(-0.1, 0.1) for i in range(100)])
     X = pd.DataFrame(data = {'x1':x1, 'x2': x2}).values
 
-    x_train, x_test, y_train, y_test = train_test_split(X,y, test_size = 0.3, random_state = 1733715)
+    x_tr, x_test, y_tr, y_test = train_test_split(X,y, test_size = 0.3, random_state = 1733715)
 
-    return x_train, x_test, y_train, y_test
+    x_train, x_val, y_train, y_val = train_test_split(x_tr, y_tr, test_size = 20, random_state = 1733715)
+    return x_train, x_test, x_val, y_train, y_test, y_val
 
-def trainMLP(x_train, y_train, N, rho, max_iter, verbose = False):
+def trainMLP(x_train, y_train, x_val, y_val, N, rho, max_iter, verbose = False):
     """
     Train an N neuron shallow Multilayer Perceptron on the train set
     (x_train, y_train), optimization performed on regularized loss
@@ -52,22 +51,21 @@ def trainMLP(x_train, y_train, N, rho, max_iter, verbose = False):
     v = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed))
 
     # Placeholders for train data
-    x = tf.placeholder(shape = x_train.shape, dtype = tf.float32)
+    x = tf.placeholder(tf.float32)
     y = tf.placeholder(tf.float32)
 
 
     hidden_output = tf.tanh(tf.matmul(w, tf.transpose(x)) - b) # Output of the hidden layer
     f_out = tf.matmul(tf.transpose(v), hidden_output) # Output of the netword
 
-    P = len(x_train)
     omega = tf.concat(values = [w,b,v], axis = 1) # Just to calculate easily the norm in the regularized term of the loss
 
-    squared_loss = 1/(2*P)*tf.reduce_sum(tf.squared_difference(f_out, y))
+    squared_loss = 1/2*tf.reduce_mean(tf.squared_difference(f_out, y))
     regularizer = rho*tf.square(tf.norm(omega))/2
 
     loss = squared_loss + regularizer
 
-    optimizer = tf.train.GradientDescentOptimizer(0.005)
+    optimizer = tf.train.GradientDescentOptimizer(0.1)
     train = optimizer.minimize(loss)
     # Initialize all the tf variables
     init = tf.global_variables_initializer()
@@ -79,8 +77,8 @@ def trainMLP(x_train, y_train, N, rho, max_iter, verbose = False):
             curr_loss = sess.run(loss, {x: x_train, y: y_train})
             print("\r%3d%% Training MLP, current loss on training set: %0.8f" %((i+1)/max_iter*100, curr_loss), end = '')
 
-    opt_W, opt_b, opt_v, loss_value = sess.run([w, b, v, loss], {x: x_train, y: y_train})
-    return opt_W, opt_b, opt_v, loss_value
+    opt_W, opt_b, opt_v, val_loss = sess.run([w, b, v, squared_loss], {x: x_val, y: y_val})
+    return opt_W, opt_b, opt_v, val_loss
 
 
 def makeMLP(w, b, v):
@@ -101,18 +99,18 @@ def compute_loss(y_h, y_t):
     y_hat = tf.placeholder(dtype = tf.float32)
     y_true = tf.placeholder(dtype = tf.float32)
 
-    loss = 1/(2*P)*tf.reduce_sum(tf.squared_difference(y_hat, y_true))
+    loss = 1/2*tf.reduce_mean(tf.squared_difference(y_hat, y_true))
 
     output = sess.run(loss, {y_hat : y_h, y_true: y_t})
 
     return output
 
 
-def grid_search_Nrho(N_values, rho_values, x_train, y_train, max_iter = 10000):
+def grid_search_Nrho(N_values, rho_values, x_train, y_train, x_val, y_val, max_iter = 10000):
     grid = dict()
     for N in N_values:
         for rho in rho_values:
             print('\nN: %d   rho: %0.1e' %(N, rho))
-            grid[(N,rho)] = trainMLP(x_train, y_train, N, rho, max_iter)[3]
+            grid[(N,rho)] = trainMLP(x_train, y_train,x_val, y_val, N, rho, max_iter)[3]
     return grid
 
