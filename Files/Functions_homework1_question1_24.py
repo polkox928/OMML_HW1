@@ -22,7 +22,7 @@ def franke(x1, x2):
     .5 * math.exp(-(9 * x1 - 7) ** 2 / 4.0 - (9 * x2 - 3) ** 2 / 4.0) -
     .2 * math.exp(-(9 * x1 - 4) ** 2 - (9 * x2 - 7) ** 2)
   )
-  
+
 def generateTrainTestSet():
     """
     Generate 100 datapoints, randomly chosen in the square [0,1]x[0,1], with output given by the franke function plus a uniform random noise
@@ -31,12 +31,12 @@ def generateTrainTestSet():
     x2 = np.array([random.uniform(0,1) for i in range(100)])
     y = np.array([franke(x1[i],x2[i]) + random.uniform(-0.1, 0.1) for i in range(100)])
     X = pd.DataFrame(data = {'x1':x1, 'x2': x2}).values
-    
+
     x_train, x_test, y_train, y_test = train_test_split(X,y, test_size = 0.3, random_state = 1733715)
-    
+
     return x_train, x_test, y_train, y_test
 
-def trainMLP(x_train, y_train, N, rho, max_iter):
+def trainMLP(x_train, y_train, N, rho, max_iter, verbose = False):
     """
     Train an N neuron shallow Multilayer Perceptron on the train set
     (x_train, y_train), optimization performed on regularized loss
@@ -46,16 +46,16 @@ def trainMLP(x_train, y_train, N, rho, max_iter):
     optimized parameters
     """
     sess = tf.Session()
-    # Initialization of model parameters 
+    # Initialization of model parameters
     w = tf.Variable(tf.truncated_normal(shape = [N, 2], seed = seed))
     b = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed))
     v = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed))
-    
+
     # Placeholders for train data
     x = tf.placeholder(shape = x_train.shape, dtype = tf.float32)
     y = tf.placeholder(tf.float32)
 
-    
+
     hidden_output = tf.tanh(tf.matmul(w, tf.transpose(x)) - b) # Output of the hidden layer
     f_out = tf.matmul(tf.transpose(v), hidden_output) # Output of the netword
 
@@ -75,29 +75,44 @@ def trainMLP(x_train, y_train, N, rho, max_iter):
 
     for i in range(max_iter):
         sess.run(train, {x: x_train, y: y_train})
-        if (i+1) %(max_iter/100) == 0:
+        if (i+1) %(max_iter/100) == 0 and verbose == True:
             curr_loss = sess.run(loss, {x: x_train, y: y_train})
-            
             print("\r%3d%% Training MLP, current loss on training set: %0.8f" %((i+1)/max_iter*100, curr_loss), end = '')
-    
+
     opt_W, opt_b, opt_v, loss_value = sess.run([w, b, v, loss], {x: x_train, y: y_train})
-    
-    def makeMLP(x_new):
-        #session = tf.Session()
+    return opt_W, opt_b, opt_v, loss_value
+
+
+def makeMLP(w, b, v):
+    def MLP(x_new):
+        sess = tf.Session()
         X = tf.placeholder(tf.float32)
-        hidden_output = tf.tanh(tf.matmul(opt_W, tf.transpose(X)) - opt_b) # Output of the hidden layer
-        f_out = tf.matmul(tf.transpose(opt_v), hidden_output) # Output of the network
+        hidden_output = tf.tanh(tf.matmul(w, tf.transpose(X)) - b) # Output of the hidden layer
+        f_out = tf.matmul(tf.transpose(v), hidden_output) # Output of the network
         output = sess.run(f_out, {X: x_new})
-        return output
-    
-    return makeMLP, w, b, v, loss_value
+        return output[0]
+    return MLP
+
+
+
+def compute_loss(y_h, y_t):
+    sess = tf.Session()
+    P = len(y_t)
+    y_hat = tf.placeholder(dtype = tf.float32)
+    y_true = tf.placeholder(dtype = tf.float32)
+
+    loss = 1/(2*P)*tf.reduce_sum(tf.squared_difference(y_hat, y_true))
+
+    output = sess.run(loss, {y_hat : y_h, y_true: y_t})
+
+    return output
 
 
 def grid_search_Nrho(N_values, rho_values, x_train, y_train, max_iter = 10000):
     grid = dict()
     for N in N_values:
         for rho in rho_values:
-            print('\n\nN: %d   rho: %e' %(N, rho))
-            grid[(N,rho)] = trainMLP(x_train, y_train, N, rho, max_iter)[4]
+            print('\nN: %d   rho: %0.1e' %(N, rho))
+            grid[(N,rho)] = trainMLP(x_train, y_train, N, rho, max_iter)[3]
     return grid
 
