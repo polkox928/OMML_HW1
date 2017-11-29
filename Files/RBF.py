@@ -1,4 +1,40 @@
-def trainMLP(x_train, y_train, N, sigma, max_iter, verbose = False):
+import tensorflow as tf
+import numpy as np
+import pandas as pd
+import random
+import math
+sess = tf.Session()
+seed = 1733715
+random.seed(seed)
+from sklearn.model_selection import train_test_split
+
+def franke(x1, x2):
+    """
+    The true function we have to approximate
+    """
+    return(
+    .75 * math.exp(-(9 * x1 - 2) ** 2 / 4.0 - (9 * x2 - 2) ** 2 / 4.0) +
+    .75 * math.exp(-(9 * x1 + 1) ** 2 / 49.0 - (9 * x2 + 1) / 10.0) +
+    .5 * math.exp(-(9 * x1 - 7) ** 2 / 4.0 - (9 * x2 - 3) ** 2 / 4.0) -
+    .2 * math.exp(-(9 * x1 - 4) ** 2 - (9 * x2 - 7) ** 2)
+  )
+
+def generateTrainTestSet():
+    """
+    Generate 100 datapoints, randomly chosen in the square [0,1]x[0,1], with output given by the franke function plus a uniform random noise
+    """
+    x1 = np.array([random.uniform(0,1) for i in range(100)])
+    x2 = np.array([random.uniform(0,1) for i in range(100)])
+    y = np.array([franke(x1[i],x2[i]) + random.uniform(-0.1, 0.1) for i in range(100)])
+    X = pd.DataFrame(data = {'x1':x1, 'x2': x2}).values
+
+    x_train, x_test, y_train, y_test = train_test_split(X,y, test_size = 0.3, random_state = 1733715)
+
+    return x_train, x_test, y_train, y_test
+
+
+
+def trainRBF(x_train, y_train, N, rho, sigma, max_iter=1000, verbose = False):
     """
     Train an N neuron shallow Multilayer Perceptron on the train set
     (x_train, y_train), optimization performed on regularized loss
@@ -10,13 +46,13 @@ def trainMLP(x_train, y_train, N, sigma, max_iter, verbose = False):
     sess = tf.Session()
     # Initialization of model parameters
     v = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed))
-    c = tf.Variable(tf.truncated_normale(shape = [N, 2], seed = seed))
+    c = tf.Variable(tf.truncated_normal(shape = [N, 2], seed = seed))
     # Placeholders for train data
-    x = tf.placeholder(shape = x_train.shape, dtype = tf.float32)
+    x = tf.placeholder(tf.float32)
     y = tf.placeholder(tf.float32)
 
 
-    hidden_output = exp((-(np.linalg.norm(x-c))/sigma)**2)
+    hidden_output = tf.exp((-(tf.norm(x-c, axis = 1))/sigma)**2)
     #tf.tanh(tf.matmul(w, tf.transpose(x)) - b) # Output of the hidden layer
     f_out = tf.matmul(tf.transpose(v), hidden_output) # Output of the netword
 
@@ -48,7 +84,7 @@ def makeRBF(c, v):
     def RBF(x_new):
         sess = tf.Session()
         X = tf.placeholder(tf.float32)
-        hidden_output = exp((-(np.linalg.norm(x-c))/sigma)**2) # Output of the hidden layer
+        hidden_output = tf.exp((-(tf.norm(x-c, axis = 1))/sigma)**2) # Output of the hidden layer
         f_out = tf.matmul(tf.transpose(v), hidden_output) # Output of the network
         output = sess.run(f_out, {X: x_new})
         return output[0]
@@ -75,6 +111,6 @@ def grid_search_NrhoSigma(N_values, rho_values, sigma_values, x_train, y_train, 
         for rho in rho_values:
             for sigma in sigma_values:
                 print('\nN: %d   rho: %0.1e  sigma: %0.1f' %(N, rho, sigma))
-                grid[(N, rho, sigma)] = trainRBF(x_train, y_train, N, rho, max_iter)[3]
+                grid[(N, rho, sigma)] = trainRBF(x_train, y_train, N, rho, sigma, max_iter)[3]
     return grid
 

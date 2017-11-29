@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 #%%
 import matplotlib.pyplot as plt
+import math
 import numpy as np
-from Functions_homework1_question1_24 import *
+from RBF import *
 #%%
-x_train, x_test, x_val, y_train, y_test, y_val = generateTrainTestSet()
+x_train, x_test, y_train, y_test = generateTrainTestSet()
 
-grid = grid_search_NrhoSigma([2, 5, 10, 20, 50], [1e-3, 1e-4, 1e-5],[0.1, 0.5, 0.7], x_train, y_train, x_val, y_val, max_iter = 1000)
+grid = grid_search_NrhoSigma([2, 5, 10, 20, 50], [1e-3, 1e-4, 1e-5],[0.1, 0.5, 0.7], x_train, y_train, max_iter = 1000)
 
 min_loss = min(grid.values())
 opt_hyp = [nrhosigma for nrhosigma, loss in grid.items() if loss == min_loss][0]
@@ -16,7 +17,7 @@ print('\nMin Loss: %0.4f' %min_loss)
 print('\nOptimal hyperparameter: (%d, %0.1e)' %opt_hyp)
 
 #%%
-c_opt, v_opt, val_loss = trainMLP(x_train, y_train, x_val, y_val, N_opt, rho_opt, sigma_opt, max_iter = 100000)
+c_opt, v_opt, val_loss = trainRBF(x_train, y_train, N_opt, rho_opt, sigma_opt, max_iter = 100000)
 
 RBF = makeRBF(c_opt, v_opt)
 
