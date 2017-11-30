@@ -148,7 +148,7 @@ def trainMLPiterator(x_train, y_train, x_test, y_test, N, rho, max_iter, epsilon
 
     loss = squared_loss + regularizer
 
-    optimizer = tf.train.GradientDescentOptimizer(0.01)
+    optimizer = tf.train.GradientDescentOptimizer(0.005)
     train = optimizer.minimize(loss)
     # Initialize all the tf variables
     init = tf.global_variables_initializer()

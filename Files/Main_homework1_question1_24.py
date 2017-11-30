@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 from Functions_homework1_question1_24 import *
-max_iter = 1000
+max_iter = 10000
 #%%
 x_train, x_test, y_train, y_test= generateTrainTestSet()
 
-grid = grid_search_Nrho([10, 20, 50, 100], [1e-3, 1e-4, 1e-5], x_train, y_train, x_test, y_test, epsilon = 1e-8, max_iter = max_iter)
+grid = grid_search_Nrho([10, 20], [1e-3, 1e-4, 1e-5], x_train, y_train, x_test, y_test, epsilon = 1e-8, max_iter = max_iter)
 
 min_loss = min(grid.values())
 opt_hyp = [nrho for nrho, loss in grid.items() if loss == min_loss][0]
@@ -19,7 +19,7 @@ print('\nOptimal hyperparameter: (%d, %0.1e)' %opt_hyp)
 
 #%%
 start = time.time()
-w_opt, b_opt, v_opt, test_loss, train_loss, iterations = trainMLP(x_train, y_train, x_test, y_test, N_opt, rho_opt, max_iter = max_iter, epsilon = 1e-8, verbose = True)
+w_opt, b_opt, v_opt, test_loss, train_loss, iterations = trainMLP(x_train, y_train, x_test, y_test, N_opt, rho_opt, max_iter = max_iter , epsilon = -1e-8, verbose = True)
 print('Training time: %0.f seconds' %(time.time()-start))
 MLP = makeMLP(w_opt, b_opt, v_opt)
 

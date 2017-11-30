@@ -43,26 +43,31 @@ def trainRBF(x_train, y_train, N, rho, sigma, max_iter=1000, verbose = False):
     Returns the fitted MLP together with final loss on training set and
     optimized parameters
     """
+
     sess = tf.Session()
     # Initialization of model parameters
-    v = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed))
-    c = tf.Variable(tf.truncated_normal(shape = [N, 2], seed = seed))
+    v = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed, dtype = tf.float64))
+    c = tf.Variable(tf.truncated_normal(shape = [N, 2], seed = seed, dtype = tf.float64))
     # Placeholders for train data
-    X = tf.placeholder(tf.float32)
-    y = tf.placeholder(tf.float32)
+    X = tf.placeholder(tf.float64)
+    y = tf.placeholder(tf.float64)
 
-        
-        
 
-    norma = np.zeros(shape=(70,2))
-    for i in range(70):
-        for j in range(5):
-            x = np.array(X[i])
-            C = np.array(c[j])
-            norma[i,j] = tf.norm(x-C)
-    
-        
-        
+    init = tf.global_variables_initializer()
+    sess.run(init)
+
+    P = x_train.shape[0]
+
+    norma = np.zeros(shape = (P, N))
+
+    C = sess.run(c)
+    for i in range(P):
+        for j in range(N):
+            x = x_train[i]
+            Cj = C[j]
+            norma[i, j] = np.linalg.norm(x-Cj)
+
+
 
     hidden_output = tf.exp(-tf.pow(norma/sigma,2))
     #tf.tanh(tf.matmul(w, tf.transpose(x)) - b) # Output of the hidden layer
@@ -79,16 +84,15 @@ def trainRBF(x_train, y_train, N, rho, sigma, max_iter=1000, verbose = False):
     optimizer = tf.train.GradientDescentOptimizer(0.005)
     train = optimizer.minimize(loss)
     # Initialize all the tf variables
-    init = tf.global_variables_initializer()
-    sess.run(init)
+
 
     for i in range(max_iter):
-        sess.run(train, {x: x_train, y: y_train})
+        sess.run(train, {X: x_train, y: y_train})
         if (i+1) %(max_iter/100) == 0 and verbose == True:
-            curr_loss = sess.run(loss, {x: x_train, y: y_train})
+            curr_loss = sess.run(loss, {X: x_train, y: y_train})
             print("\r%3d%% Training RBF, current loss on training set: %0.8f" %((i+1)/max_iter*100, curr_loss), end = '')
 
-    opt_c, opt_v, loss_value = sess.run([c, v, loss], {x: x_train, y: y_train})
+    opt_c, opt_v, loss_value = sess.run([c, v, loss], {X: x_train, y: y_train})
     return opt_c, opt_v, loss_value
 
 
@@ -96,24 +100,19 @@ def makeRBF(c, v,sigma):
     def RBF(x_new):
         sess = tf.Session()
         X = tf.placeholder(tf.float32)
-        
-        
-        
 
-        norma = np.zeros(shape=(70,2))
+
+        P = x_new.shape[0]
+        N = c.shape[0]
+        norma = tf.zeros(shape=(P, N))
         for i in range(len(X)):
             for j in range(len(c)):
-                x = np.array(X[i])
-                C = np.array(c[j])
-                norma[i,j] = np.linalg.norm(x-C)
-        
-                
-        
-        
-        
-        
+                x = X[i]
+                C = c[j]
+                norma[i,j] = tf.norm(x-C)
+
         hidden_output = tf.exp((-norma/sigma)**2) # Output of the hidden layer
-        f_out = tf.matmul(tf.transpose(v), hidden_output) # Output of the network
+        f_out = tf.matmul(hidden_output, v) # Output of the network
         output = sess.run(f_out, {X: x_new})
         return output[0]
     return RBF
@@ -139,5 +138,5 @@ def grid_search_NrhoSigma(N_values, rho_values, sigma_values, x_train, y_train, 
         for rho in rho_values:
             for sigma in sigma_values:
                 print('\nN: %d   rho: %0.1e  sigma: %0.1f' %(N, rho, sigma))
-                grid[(N, rho, sigma)] = trainRBF(x_train, y_train, N, rho, sigma, max_iter)[3]
+                grid[(N, rho, sigma)] = trainRBF(x_train, y_train, N, rho, sigma, max_iter)[2]
     return grid
