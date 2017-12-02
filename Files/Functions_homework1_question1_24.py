@@ -6,7 +6,6 @@ import random
 import math
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
-sess = tf.Session()
 seed = 1733715
 random.seed(seed)
 
@@ -32,7 +31,7 @@ def generateTrainTestSet():
 
     x_train, x_test, y_train, y_test = train_test_split(X,y, test_size = 0.3, random_state = 1733715)
 
-    return x_train, x_test, y_train, y_test
+    return x_train, x_test, y_train.reshape((-1, 1)), y_test.reshape((-1, 1))
 
 
 def trainMLP(x_train, y_train, x_test, y_test, N, rho, learning_rate = 0.001, max_iter = 1000, epsilon = 1e-6, verbose = False):
@@ -59,7 +58,7 @@ def trainMLP(x_train, y_train, x_test, y_test, N, rho, learning_rate = 0.001, ma
     hidden_output = tf.tanh(tf.matmul(w, tf.transpose(x)) - b)
 
     # Output of the network
-    f_out = tf.matmul(tf.transpose(v), hidden_output)
+    f_out = tf.matmul(tf.transpose(hidden_output), v)
 
     omega = tf.concat(values = [w,b,v], axis = 1) # Just to calculate easily the norm in the regularized term of the loss
 
@@ -74,20 +73,26 @@ def trainMLP(x_train, y_train, x_test, y_test, N, rho, learning_rate = 0.001, ma
     init = tf.global_variables_initializer()
     sess.run(init)
 
-    prev_loss = 100.0
-    for i in range(max_iter):
+    #prev_loss = 100.0
+    gradient_norm = 1
+    i = 0
+    while i < max_iter:
+        #for i in range(max_iter):
         sess.run(train, {x: x_train, y: y_train})
+
         curr_loss = sess.run(loss, {x: x_train, y: y_train})
 
-        if verbose == True:
-            print("\r%3d%% Training MLP, current loss on training set: %0.8f" %((i+1)/max_iter*100, curr_loss), end = '')
-        if abs(prev_loss - curr_loss) < epsilon:
-            break
-        prev_loss = curr_loss
+        if verbose == True and (i+1)%(max_iter/1000) == 0:
+            print("\r%3d%% Training MLP, current loss: %0.8f" %((i+1)/max_iter*100, curr_loss), end = '')
+#        if abs(prev_loss - curr_loss) < epsilon:
+#            break
+        #prev_loss = curr_loss
+        i += 1
     if verbose: print('')
     print('Number of iterations: %d' %(i+1))
     opt_W, opt_b, opt_v, test_loss = sess.run([w, b, v, squared_loss], {x: x_test, y: y_test})
     train_loss = sess.run(loss, {x: x_train, y: y_train})
+    sess.close()
     return opt_W, opt_b, opt_v, test_loss, train_loss, i+1
 
 
@@ -99,7 +104,8 @@ def makeMLP(w, b, v):
         hidden_output = tf.tanh(tf.matmul(w, tf.transpose(X)) - b) # Output of the hidden layer
         f_out = tf.matmul(tf.transpose(v), hidden_output) # Output of the network
         output = sess.run(f_out, {X: x_new})
-        return output[0]
+        sess.close()
+        return output
     return MLP
 
 
@@ -113,17 +119,19 @@ def compute_loss(y_h, y_t):
     loss = 1/2*tf.reduce_mean(tf.squared_difference(y_hat, y_true))
 
     output = sess.run(loss, {y_hat : y_h, y_true: y_t})
-
+    sess.close()
     return output
 
 
-def grid_search_Nrho(N_values, rho_values, x_train, y_train, x_test, y_test, learning_rate, epsilon = 1e-5, max_iter = 10000):
+def grid_search_Nrho(N_values, rho_values, x_train, y_train, x_test, y_test, learning_rate, epsilon = 1e-5, max_iter = 10000, verbose = False):
     grid = dict()
     for N in N_values:
         for rho in rho_values:
             print('\nN: %1d   rho: %0.1e' %(N, rho))
-            grid[(N,rho)] = trainMLP(x_train, y_train, x_test, y_test, N, rho, learning_rate, max_iter, epsilon)[3] # Test loss
+            grid[(N,rho)] = trainMLP(x_train, y_train, x_test, y_test, N, rho, learning_rate, max_iter, epsilon, verbose)[3] # Test loss
     return grid
+
+
 def trainMLPiterator(x_train, y_train, x_test, y_test, N, rho, max_iter, epsilon = 1e-6, verbose = False):
     """
     Train an N neuron shallow Multilayer Perceptron on the train set

@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 from Functions_homework1_question1_24 import *
-max_iter = 100000
-learning_rate = 0.01
+max_iter = 10000
+learning_rate = 0.05
 #%%
 x_train, x_test, y_train, y_test= generateTrainTestSet()
 
-grid = grid_search_Nrho([10, 20], [1e-3, 1e-4, 1e-5], x_train, y_train, x_test, y_test,learning_rate = learning_rate, epsilon = 1e-8, max_iter = max_iter)
+grid = grid_search_Nrho([5, 20], [1e-3, 1e-4, 1e-5], x_train, y_train, x_test, y_test,learning_rate = learning_rate, epsilon = 1e-8, max_iter = max_iter, verbose = True)
 
 min_loss = min(grid.values())
 opt_hyp = [nrho for nrho, loss in grid.items() if loss == min_loss][0]
@@ -42,7 +42,7 @@ from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import numpy as np
 
-grid_X = [[i, j] for i in np.arange(0, 1.0, 0.01) for j in np.arange(0, 1.0, 0.01)]
+grid_X = np.array([[i, j] for i in np.arange(0, 1.0, 0.01) for j in np.arange(0, 1.0, 0.01)])
 
 grid_franke = np.array([franke(x[0],x[1]) for x in grid_X]).reshape((100,100))
 grid_Z = MLP(grid_X).reshape((100,100))
@@ -62,7 +62,7 @@ surf = ax.plot_surface(X, Y, grid_Z, cmap=cm.Reds,
                        linewidth=0, antialiased=False, label = 'Approximating function')
 surf2 = ax.plot_surface(X, Y, grid_franke, cmap=cm.Blues,
                     linewidth=0, antialiased=False, label = 'Franke function')
-ax.legend(loc = 'best')
+#ax.legend(loc = 'best')
 
 # Customize the z axis.
 ax.zaxis.set_major_locator(LinearLocator(10))
