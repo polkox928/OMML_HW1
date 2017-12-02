@@ -32,9 +32,9 @@ def generateTrainTestSet():
 
     x_train, x_test, y_train, y_test = train_test_split(X,y, test_size = 0.3, random_state = 1733715)
 
-    return x_train, x_test, y_train, y_test
+    return x_train, x_test, y_train.reshape((-1, 1)), y_test.reshape((-1, 1))
 
-def ELtrainMLP(x_train, y_train, x_test, y_test, N, rho, max_iter, verbose = False):
+def ELtrainMLP(x_train, y_train, x_test, y_test, N, rho, learning_rate, max_iter, verbose = False):
     """
     Train an N neuron shallow Multilayer Perceptron on the train set
     (x_train, y_train), optimization performed on regularized loss
@@ -44,43 +44,57 @@ def ELtrainMLP(x_train, y_train, x_test, y_test, N, rho, max_iter, verbose = Fal
     optimized parameters
     """
     sess = tf.Session()
+
     # Initialization of model parameters
-    w = tf.Variable(tf.truncated_normal(shape = [N, 2], seed = seed),
-                    trainable = False)
-    b = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed),
-                    trainable = False)
+    w = tf.Variable(tf.truncated_normal(shape = [N, 2], seed = seed), trainable = False)
+    b = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed), trainable = False)
     v = tf.Variable(tf.truncated_normal(shape = [N, 1], seed = seed))
 
     # Placeholders for train data
     x = tf.placeholder(tf.float32)
     y = tf.placeholder(tf.float32)
 
+    # Output of the hidden layer
+    hidden_output = tf.tanh(tf.matmul(w, tf.transpose(x)) - b)
 
-    hidden_output = tf.tanh(tf.matmul(w, tf.transpose(x)) - b) # Output of the hidden layer
-    f_out = tf.matmul(tf.transpose(v), hidden_output) # Output of the netword
+    # Output of the network
+    f_out = tf.matmul(tf.transpose(hidden_output), v)
 
     omega = tf.concat(values = [w,b,v], axis = 1) # Just to calculate easily the norm in the regularized term of the loss
 
-    squared_loss = 1/2*tf.reduce_mean(tf.squared_difference(f_out, y))
+    squared_loss = (1/2)*tf.reduce_mean(tf.squared_difference(f_out, y))
     regularizer = rho*tf.square(tf.norm(omega))/2
 
     loss = squared_loss + regularizer
 
-    optimizer = tf.train.GradientDescentOptimizer(0.5)
+    optimizer = tf.train.AdamOptimizer(learning_rate)
     train = optimizer.minimize(loss)
     # Initialize all the tf variables
     init = tf.global_variables_initializer()
     sess.run(init)
 
-    for i in range(max_iter):
+    #prev_loss = 100.0
+    gradient_norm = 1
+    i = 0
+    while i < max_iter:
+        #for i in range(max_iter):
         sess.run(train, {x: x_train, y: y_train})
-        if (i+1) %(max_iter/100) == 0 and verbose == True:
-            curr_loss = sess.run(loss, {x: x_train, y: y_train})
-            print("\r%3d%% Training MLP, current loss on training set: %0.8f" %((i+1)/max_iter*100, curr_loss), end = '')
 
-    w, b, opt_v, test_loss = sess.run([w, b, v, squared_loss], {x: x_test, y: y_test})
+        curr_loss = sess.run(loss, {x: x_train, y: y_train})
+
+        if verbose == True and (i+1)%(max_iter/1000) == 0:
+            print("\r%3d%% Training MLP, current loss: %0.8f" %((i+1)/max_iter*100, curr_loss), end = '')
+#        if abs(prev_loss - curr_loss) < epsilon:
+#            break
+        #prev_loss = curr_loss
+        i += 1
+    if verbose: print('')
+    print('Number of iterations: %d' %(i+1))
+    opt_W, opt_b, opt_v, test_loss = sess.run([w, b, v, squared_loss], {x: x_test, y: y_test})
     train_loss = sess.run(loss, {x: x_train, y: y_train})
-    return w, b, opt_v, test_loss, train_loss
+    sess.close()
+    return opt_W, opt_b, opt_v, test_loss, train_loss, i+1
+
 
 def makeMLP(w, b, v):
     def MLP(x_new):
@@ -89,19 +103,20 @@ def makeMLP(w, b, v):
         hidden_output = tf.tanh(tf.matmul(w, tf.transpose(X)) - b) # Output of the hidden layer
         f_out = tf.matmul(tf.transpose(v), hidden_output) # Output of the network
         output = sess.run(f_out, {X: x_new})
-        return output[0]
+        sess.close()
+        return output
     return MLP
 
 
 
 def compute_loss(y_h, y_t):
     sess = tf.Session()
-    P = len(y_t)
+
     y_hat = tf.placeholder(dtype = tf.float32)
     y_true = tf.placeholder(dtype = tf.float32)
 
     loss = 1/2*tf.reduce_mean(tf.squared_difference(y_hat, y_true))
 
     output = sess.run(loss, {y_hat : y_h, y_true: y_t})
-
+    sess.close()
     return output

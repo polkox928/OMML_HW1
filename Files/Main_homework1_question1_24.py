@@ -9,7 +9,7 @@ learning_rate = 0.05
 #%%
 x_train, x_test, y_train, y_test= generateTrainTestSet()
 
-grid = grid_search_Nrho([5, 20], [1e-3, 1e-4, 1e-5], x_train, y_train, x_test, y_test,learning_rate = learning_rate, epsilon = 1e-8, max_iter = max_iter, verbose = True)
+grid = grid_search_Nrho([2, 5, 20, 50], [1e-3, 1e-4, 1e-5], x_train, y_train, x_test, y_test,learning_rate = learning_rate, epsilon = 1e-8, max_iter = max_iter, verbose = True)
 
 min_loss = min(grid.values())
 opt_hyp = [nrho for nrho, loss in grid.items() if loss == min_loss][0]

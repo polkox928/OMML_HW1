@@ -29,11 +29,11 @@ def generateTrainTestSet():
 
     x_train, x_test, y_train, y_test = train_test_split(X,y, test_size = 0.3, random_state = 1733715)
 
-    return x_train, x_test, y_train, y_test
+    return x_train, x_test, y_train.reshape((-1,1)), y_test.reshape((-1, 1))
 
 
 
-def trainRBF(x_train, y_train, N, rho, sigma, max_iter=1000, verbose = False):
+def trainRBF(x_train, y_train, x_test, y_test, N, rho, sigma, max_iter=1000, verbose = False):
     """
     Train an N neuron shallow Multilayer Perceptron on the train set
     (x_train, y_train), optimization performed on regularized loss
@@ -42,50 +42,41 @@ def trainRBF(x_train, y_train, N, rho, sigma, max_iter=1000, verbose = False):
     Returns the fitted MLP together with final loss on training set and
     optimized parameters
     """
-#    idx = np.random.choice(np.arange(len(x_train)),
-#                                     size = N,
-#                                     replace = False)
+    idx = np.random.choice(np.arange(len(x_train)), size = N, replace = False)
+
     sess = tf.Session()
     # Initialization of model parameters
-    v = tf.Variable(tf.random_uniform(shape = [N, 1],
-                                        seed = seed,
-                                        dtype = tf.float64))
+    v = tf.Variable(tf.random_uniform(shape = [N, 1], seed = seed, dtype = tf.float64))
 
-    c = tf.Variable(tf.random_uniform(shape = [N, 2],
-                                      seed = seed,
-                                      dtype = tf.float64))
+    c = tf.Variable(x_train[idx]+0.01, dtype = tf.float64)
 
     # Placeholders for train data
-    X = tf.placeholder(tf.float64,
-                       shape = x_train.shape)
+    X = tf.placeholder(tf.float64)
 
-    y = tf.placeholder(tf.float64, shape = y_train.shape)
+    y = tf.placeholder(tf.float64)
 
     P = len(x_train)
 
-    norma = tf.TensorArray(dtype = tf.float64,
-                           size = P)
+    norma = tf.TensorArray(dtype = tf.float64, size = P)
 
+    init_state = (0, norma)
 
+    condition = lambda j, _: j < P
 
-#    init_state = (0, norma)
-#
-#    condition = lambda j, _: j < P
-#
-#    body = lambda j, norma: (j + 1, norma.write(j, tf.norm(tf.subtract(X[j],c), axis = 1)))
-#
-#    n, norma_final = tf.while_loop(condition, body, init_state)
-#
-#    norma_final_result = norma_final.stack()
-#    phi = tf.exp(-tf.square(norma_final_result)/sigma)
-    m = []
-    for cj in tf.unstack(c):
-        resta = tf.subtract(X, cj)
-        norma = tf.norm(resta, axis = 1)
-        phij = tf.exp(-tf.square(norma/sigma))
-        m.append(phij)
-    phi = tf.stack(m, axis = 1)
-#    C = sess.run(c)
+    body = lambda j, norma: (j + 1, norma.write(j, tf.norm(tf.subtract(X[j],c), axis = 1)))
+
+    n, norma_final = tf.while_loop(condition, body, init_state)
+
+    norma_final_result = norma_final.stack()
+    phi = tf.exp(-tf.square(norma_final_result)/sigma)
+#    m = []
+#    for cj in tf.unstack(c):
+#        resta = tf.subtract(X, cj)
+#        norma = tf.norm(resta, axis = 1)
+#        phij = tf.exp(-tf.square(norma/sigma))
+#        m.append(phij)
+#    phi = tf.stack(m, axis = 1)
+##    C = sess.run(c)
 #    for i in range(P):
 #        for j in range(N):
 #            x = x_train[i]
@@ -104,7 +95,7 @@ def trainRBF(x_train, y_train, N, rho, sigma, max_iter=1000, verbose = False):
 
     loss = squared_loss + regularizer
 
-    optimizer = tf.train.AdamOptimizer(0.05)
+    optimizer = tf.train.AdamOptimizer(0.0005)
     train = optimizer.minimize(loss)
     # Initialize all the tf variables
     init = tf.global_variables_initializer()
@@ -122,8 +113,32 @@ def trainRBF(x_train, y_train, N, rho, sigma, max_iter=1000, verbose = False):
             print("\r%3d%% Training RBF, current loss on training set: %0.8f" %((i+1)/max_iter*100, curr_loss), end = '')
 
     opt_c, opt_v, loss_value = sess.run([c, v, loss], {X: x_train, y: y_train})
+
+    Xt = tf.placeholder(tf.float64)
+    yt = tf.placeholder(tf.float64)
+
+    norma_test = tf.TensorArray(dtype = tf.float64, size = len(y_test))
+    init_state_test = (0, norma_test)
+
+    condition_test = lambda j, _: j < len(y_test)
+
+    body_test = lambda j, norma_test: (j + 1, norma_test.write(j, tf.norm(tf.subtract(Xt[j],opt_c), axis = 1)))
+
+    n, norma_final_test = tf.while_loop(condition_test, body_test, init_state_test)
+
+    norma_final_result_test = norma_final_test.stack()
+    phi_test = tf.exp(-tf.square(norma_final_result_test)/sigma)
+
+    f_out_test = tf.matmul(phi_test,opt_v) # Output of the network
+
+    squared_loss = 1/2*tf.reduce_mean(tf.squared_difference(f_out_test, yt))
+
+    init = tf.global_variables_initializer()
+    sess.run(init)
+
+    test_loss = sess.run(squared_loss, {Xt: x_test, yt: y_test})
     sess.close()
-    return opt_c, opt_v, loss_value
+    return opt_c, opt_v, test_loss, loss_value
 
 
 def makeRBF(c, v, sigma):
@@ -165,11 +180,11 @@ def compute_loss(y_h, y_t):
     return output
 
 
-def grid_search_NrhoSigma(N_values, rho_values, sigma_values, x_train, y_train, max_iter = 10000, verbose = False):
+def grid_search_NrhoSigma(N_values, rho_values, sigma_values, x_train, y_train, x_test, y_test, max_iter = 10000, verbose = False):
     grid = dict()
     for N in N_values:
         for rho in rho_values:
             for sigma in sigma_values:
                 print('\nN: %d   rho: %0.1e  sigma: %0.2f' %(N, rho, sigma))
-                grid[(N, rho, sigma)] = trainRBF(x_train, y_train, N, rho, sigma, max_iter, verbose)[2]
+                grid[(N, rho, sigma)] = trainRBF(x_train, y_train, x_test, y_test, N, rho, sigma, max_iter, verbose)[2]
     return grid

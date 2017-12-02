@@ -8,7 +8,7 @@ max_iter = 1000
 #%%
 x_train, x_test, y_train, y_test = generateTrainTestSet()
 
-grid = grid_search_NrhoSigma([5], [0],[2.0], x_train, y_train, max_iter = max_iter, verbose = True)
+grid = grid_search_NrhoSigma([4, 10, 30], [1e-4, 1e-5],[0.1, 1.0, 2.0], x_train, y_train, x_test, y_test, max_iter = max_iter, verbose = True)
 
 min_loss = min(grid.values())
 opt_hyp = [nrhosigma for nrhosigma, loss in grid.items() if loss == min_loss][0]
@@ -18,7 +18,7 @@ print('\nMin Loss: %0.5f' %min_loss)
 print('\nOptimal hyperparameter: (%d, %0.1e, %0.2f)' %opt_hyp)
 
 #%%
-c_opt, v_opt, val_loss = trainRBF(x_train, y_train, N_opt, rho_opt, sigma_opt, max_iter = max_iter*10, verbose = True)
+c_opt, v_opt, test_loss, val_loss = trainRBF(x_train, y_train, x_test, y_test, N_opt, rho_opt, sigma_opt, max_iter = max_iter*10, verbose = True)
 
 RBF = makeRBF(c_opt, v_opt, sigma_opt)
 
@@ -63,6 +63,3 @@ ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
 
 
 plt.show()
-
-#%%
-
