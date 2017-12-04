@@ -18,10 +18,13 @@ def franke(x1, x2):
     .2 * math.exp(-(9 * x1 - 4) ** 2 - (9 * x2 - 7) ** 2)
   )
 
+
 def generateTrainTestSet():
     """
-    Generate 100 datapoints, randomly chosen in the square [0,1]x[0,1], with output given by the franke function plus a uniform random noise
+    Generate 100 datapoints, randomly chosen in the square [0,1]x[0,1], 
+    with output given by the franke function plus a uniform random noise
     """
+    random.seed(seed)
     x1 = np.array([random.uniform(0,1) for i in range(100)])
     x2 = np.array([random.uniform(0,1) for i in range(100)])
     y = np.array([franke(x1[i],x2[i]) + random.uniform(-0.1, 0.1) for i in range(100)])
@@ -31,9 +34,7 @@ def generateTrainTestSet():
 
     return x_train, x_test, y_train.reshape((-1,1)), y_test.reshape((-1, 1))
 
-
-
-def trainRBF(x_train, y_train, x_test, y_test, N, rho, sigma, max_iter=1000, verbose = False):
+def trainRBF(x_train, y_train, x_test, y_test, N, rho, sigma, learning_rate = 1, max_iter=1000, epsilon = 1e-6, verbose = False):
     """
     Train an N neuron shallow Multilayer Perceptron on the train set
     (x_train, y_train), optimization performed on regularized loss
@@ -42,6 +43,7 @@ def trainRBF(x_train, y_train, x_test, y_test, N, rho, sigma, max_iter=1000, ver
     Returns the fitted MLP together with final loss on training set and
     optimized parameters
     """
+    random.seed(seed)
     idx = np.random.choice(np.arange(len(x_train)), size = N, replace = False)
 
     sess = tf.Session()
@@ -69,48 +71,40 @@ def trainRBF(x_train, y_train, x_test, y_test, N, rho, sigma, max_iter=1000, ver
 
     norma_final_result = norma_final.stack()
     phi = tf.exp(-tf.square(norma_final_result)/sigma)
-#    m = []
-#    for cj in tf.unstack(c):
-#        resta = tf.subtract(X, cj)
-#        norma = tf.norm(resta, axis = 1)
-#        phij = tf.exp(-tf.square(norma/sigma))
-#        m.append(phij)
-#    phi = tf.stack(m, axis = 1)
-##    C = sess.run(c)
-#    for i in range(P):
-#        for j in range(N):
-#            x = x_train[i]
-#            Cj = C[j]
-#            norma[i, j] = np.linalg.norm(x-Cj)
-    #print(norma)
 
-
-    #tf.tanh(tf.matmul(w, tf.transpose(x)) - b) # Output of the hidden layer
     f_out = tf.matmul(phi,v) # Output of the network
 
-    #P = len(x_train)
     omega = tf.concat(values = [c,v], axis = 1) # Just to calculate easily the norm in the regularized term of the loss
+
     squared_loss = 1/2*tf.reduce_mean(tf.squared_difference(f_out, y))
     regularizer = rho*tf.square(tf.norm(omega))/2
 
     loss = squared_loss + regularizer
 
-    optimizer = tf.train.AdamOptimizer(0.0005)
+    optimizer = tf.train.AdamOptimizer(learning_rate)
     train = optimizer.minimize(loss)
+
     # Initialize all the tf variables
     init = tf.global_variables_initializer()
     sess.run(init)
 
-    #print(sess.run([tf.shape(f_out)], {X: x_train, y: y-train}))
-    #print(sess.run([tf.shape(phi), tf.shape(c)], {X: x_train}))
-    for i in range(max_iter):
-        #print(sess.run([c, v]))
+    prev_loss = 0
+    accuracy = 1
+    i = 0
+
+    while i < max_iter and accuracy > epsilon:
+        
+        i += 1
         sess.run(train, {X: x_train, y: y_train})
-#        print(sess.run([c, v], {X: x_train}))
-        #print(norma)
-        if (i+1) %(max_iter/100) == 0 and verbose == True:
+        if i % 50 == 0 and verbose == True:
             curr_loss = sess.run(loss, {X: x_train, y: y_train})
-            print("\r%3d%% Training RBF, current loss on training set: %0.8f" %((i+1)/max_iter*100, curr_loss), end = '')
+            accuracy = abs(prev_loss - curr_loss)
+            prev_loss = curr_loss
+            print("\rTraining RBF, iterations: %d,  current loss: %0.8f, accuracy: %0.1e" %(i, curr_loss, accuracy), end = '')
+    if verbose: print('')
+    if accuracy < epsilon:
+        print('Accuracy of %0.1e, successful optimization' %accuracy)
+    print('Number of iterations: %d' %(i+1))
 
     opt_c, opt_v, loss_value = sess.run([c, v, loss], {X: x_train, y: y_train})
 
@@ -140,7 +134,6 @@ def trainRBF(x_train, y_train, x_test, y_test, N, rho, sigma, max_iter=1000, ver
     sess.close()
     return opt_c, opt_v, test_loss, loss_value
 
-
 def makeRBF(c, v, sigma):
     def RBF(x_new):
         sess = tf.Session()
@@ -164,21 +157,6 @@ def makeRBF(c, v, sigma):
         sess.close()
         return output
     return RBF
-
-
-
-def compute_loss(y_h, y_t):
-    sess = tf.Session()
-    #P = len(y_t)
-    y_hat = tf.placeholder(dtype = tf.float32)
-    y_true = tf.placeholder(dtype = tf.float32)
-
-    loss = 1/2*tf.reduce_mean(tf.squared_difference(y_hat, y_true))
-
-    output = sess.run(loss, {y_hat : y_h, y_true: y_t})
-    sess.close()
-    return output
-
 
 def grid_search_NrhoSigma(N_values, rho_values, sigma_values, x_train, y_train, x_test, y_test, max_iter = 10000, verbose = False):
     grid = dict()
